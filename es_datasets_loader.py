@@ -103,6 +103,7 @@ def upload_corpus(corpus):
         es_client,
         gendata(),
         thread_count=BULK_THREADS,
+        queue_size=BULK_THREADS * 2,
         chunk_size=BULK_SIZE,
         raise_on_error=False
     ):
