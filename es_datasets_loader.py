@@ -1,9 +1,9 @@
 import os
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
-from elasticsearch.helpers import bulk
-from elasticsearch.helpers import streaming_bulk
+from elasticsearch.helpers import parallel_bulk
 from datasets import load_dataset
+import time
 
 load_dotenv()
 
@@ -38,6 +38,7 @@ INDEX_NAME = os.getenv('INDEX_NAME', None)
 INDEX_PREFIX = os.getenv('INDEX_PREFIX', 'datasets')
 RENEW_INDEX = os.getenv('RENEW_INDEX', 'false').lower() == 'true'
 BULK_SIZE = int(os.getenv('BULK_SIZE', 100))
+BULK_THREADS = int(os.getenv('BULK_THREADS', 8))
 NUM_INGEST = int(os.getenv('NUM_INGEST', 1000))
 
 DATASET_PATH = os.getenv('DATASET_PATH', 'wikimedia/wikipedia')
@@ -54,7 +55,7 @@ if RANDOM_SEED is not None:
     RANDOM_SEED = int(RANDOM_SEED)
 
 def load_corpus(dataset_path, dataset_name):
-    wikipedia = load_dataset(dataset_path, dataset_name, streaming=True, trust_remote_code=True)
+    wikipedia = load_dataset(dataset_path, dataset_name, trust_remote_code=True)
     if RANDOM_SEED is not None:
         wikipedia = wikipedia.shuffle(seed=RANDOM_SEED)
     return wikipedia['train']
@@ -74,9 +75,14 @@ def upload_corpus(corpus):
     index_name = create_index_name()
     if RENEW_INDEX:
         delete_index_if_exists(index_name)
+    success_count = 0
+    error_count = 0
+    error_docs = []
 
     def gendata():
         for doc in corpus:
+            if success_count >= NUM_INGEST:
+                break
             doc['dataset'] = {
                 'type': 'Hugging Face Datasets',
                 'path': DATASET_PATH,
@@ -88,15 +94,14 @@ def upload_corpus(corpus):
                 '_id': doc['id'],
                 '_source': doc
             }
-    success_count = 0
-    error_count = 0
-    error_docs = []
 
     print(f'Uploading {NUM_INGEST} documents to the Elasticsearch server')
 
-    for success, info in streaming_bulk(
+    start_time = time.time()
+    for success, info in parallel_bulk(
         es_client,
         gendata(),
+        thread_count=BULK_THREADS,
         chunk_size=BULK_SIZE,
         raise_on_error=False
     ):
@@ -104,14 +109,18 @@ def upload_corpus(corpus):
             success_count += 1
             if success_count % BULK_SIZE == 0:
                 print(f'{success_count} documents uploaded')
-            if success_count >= NUM_INGEST:
-                break
         else:
             error_count += 1
             error_docs.append(info['index']['_id'])
+        if success_count >= NUM_INGEST:
+            break
+    end_time = time.time()
     print(f'Total {success_count} documents uploaded successfully')
     print(f'{error_count} documents failed to upload')
     print(f'Error documents: {error_docs}')
+    # print the throughput (documents per second)
+    print(f'Elapsed time: {end_time - start_time:.2f} seconds')
+    print(f'Throughput: {success_count / (end_time - start_time):.2f} docs/sec')
 
 
 if __name__ == '__main__':

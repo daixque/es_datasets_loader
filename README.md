@@ -61,6 +61,8 @@ RENEW_INDEX=false
 BULK_SIZE=100
 # Set the number of documents to ingest
 NUM_INGEST=100
+# Set the number of threads to use for bulk indexing
+BULK_THREADS=8
 
 # Set the random seed for reproducibility
 # If not set, it will load the data from the beginning
