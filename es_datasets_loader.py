@@ -56,10 +56,10 @@ if RANDOM_SEED is not None:
     RANDOM_SEED = int(RANDOM_SEED)
 
 def load_corpus(dataset_path, dataset_name):
-    wikipedia = load_dataset(dataset_path, dataset_name, streaming=DATASET_STREAMING, trust_remote_code=True)
+    corpus = load_dataset(dataset_path, dataset_name, streaming=DATASET_STREAMING, trust_remote_code=True)
     if RANDOM_SEED is not None:
-        wikipedia = wikipedia.shuffle(seed=RANDOM_SEED)
-    return wikipedia['train']
+        corpus = corpus.shuffle(seed=RANDOM_SEED)
+    return corpus['train']
 
 def delete_index_if_exists(index_name):
     if es_client.indices.exists(index=index_name):
@@ -80,16 +80,17 @@ def upload_corpus(corpus):
     error_count = 0
     error_docs = []
 
+    dataset = {
+        'type': 'Hugging Face Datasets',
+        'path': DATASET_PATH,
+        'name': DATASET_NAME,
+        'lang': LANG,
+    }
     def gendata():
         for doc in corpus:
             if success_count >= NUM_INGEST:
                 break
-            doc['dataset'] = {
-                'type': 'Hugging Face Datasets',
-                'path': DATASET_PATH,
-                'name': DATASET_NAME,
-                'lang': LANG,
-            }
+            doc['dataset'] = dataset
             yield {
                 '_index': index_name,
                 '_id': doc['id'],
