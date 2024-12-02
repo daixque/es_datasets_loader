@@ -43,6 +43,7 @@ NUM_INGEST = int(os.getenv('NUM_INGEST', 1000))
 
 DATASET_PATH = os.getenv('DATASET_PATH', 'wikimedia/wikipedia')
 DATASET_NAME = os.getenv('DATASET_NAME', '20220301.en')
+DATASET_STREAMING = os.getenv('DATASET_STREAMING', 'false').lower() == 'true'
 
 sprit = DATASET_NAME.split('.')
 if len(sprit) == 2:
@@ -55,7 +56,7 @@ if RANDOM_SEED is not None:
     RANDOM_SEED = int(RANDOM_SEED)
 
 def load_corpus(dataset_path, dataset_name):
-    wikipedia = load_dataset(dataset_path, dataset_name, trust_remote_code=True)
+    wikipedia = load_dataset(dataset_path, dataset_name, streaming=DATASET_STREAMING, trust_remote_code=True)
     if RANDOM_SEED is not None:
         wikipedia = wikipedia.shuffle(seed=RANDOM_SEED)
     return wikipedia['train']
