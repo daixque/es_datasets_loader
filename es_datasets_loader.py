@@ -4,6 +4,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.helpers import parallel_bulk
 from datasets import load_dataset
 import time
+import tqdm
 
 load_dotenv()
 
@@ -99,6 +100,7 @@ def upload_corpus(corpus):
 
     print(f'Uploading {NUM_INGEST} documents to the Elasticsearch server')
 
+    progress = tqdm.tqdm(unit="docs", total=NUM_INGEST)
     start_time = time.time()
     for success, info in parallel_bulk(
         es_client,
@@ -110,8 +112,7 @@ def upload_corpus(corpus):
     ):
         if success:
             success_count += 1
-            if success_count % BULK_SIZE == 0:
-                print(f'{success_count} documents uploaded')
+            progress.update(1)
         else:
             error_count += 1
             error_docs.append(info['index']['_id'])
@@ -121,9 +122,6 @@ def upload_corpus(corpus):
     print(f'Total {success_count} documents uploaded successfully')
     print(f'{error_count} documents failed to upload')
     print(f'Error documents: {error_docs}')
-    # print the throughput (documents per second)
-    print(f'Elapsed time: {end_time - start_time:.2f} seconds')
-    print(f'Throughput: {success_count / (end_time - start_time):.2f} docs/sec')
 
 
 if __name__ == '__main__':
