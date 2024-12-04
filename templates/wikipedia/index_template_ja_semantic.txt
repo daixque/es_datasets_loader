@@ -1,9 +1,9 @@
-PUT _index_template/dataset_wikipedia_template
+PUT _index_template/dataset_wikipedia_template_ja
 {
   "index_patterns": [
-    "datasets-wikimedia_wikipedia*"
+    "datasets-wikimedia_wikipedia*.ja"
   ],
-  "priority": 500,
+  "priority": 600,
   "template": {
     "mappings": {
       "properties": {
@@ -32,16 +32,28 @@ PUT _index_template/dataset_wikipedia_template
           "ignore_above": 256
         },
         "text": {
-          "type": "text"
+          "type": "text",
+          "analyzer": "kuromoji",
+          "copy_to": "text_semantic"
+        },
+        "text_semantic": {
+          "type": "semantic_text",
+          "inference_id": "e5-small-endpoint"
         },
         "title": {
           "type": "text",
+          "analyzer": "kuromoji",
+          "copy_to": "title_semantic",
           "fields": {
             "keyword": {
               "type": "keyword",
               "ignore_above": 256
             }
           }
+        },
+        "title_semantic": {
+          "type": "semantic_text",
+          "inference_id": "e5-small-endpoint"
         },
         "url": {
           "type": "keyword",
